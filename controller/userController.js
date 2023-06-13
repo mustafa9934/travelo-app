@@ -1,4 +1,13 @@
 const User = require("../models/users");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+
+const generateToken = (user) => {
+  const token = jwt.sign({ user }, "JWTSECRET", {
+    expiresIn: "3d",
+  });
+  return token;
+};
 
 module.exports = {
   signUp: async (req, res) => {
@@ -13,7 +22,8 @@ module.exports = {
       });
 
       const savedUser = await newUser.save();
-      res.json(savedUser);
+      const token = generateToken(savedUser);
+      res.status(200).json({ token, user: savedUser });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Server Error" });
@@ -23,19 +33,16 @@ module.exports = {
     const { username, password } = req.body;
 
     try {
-      // Check if user with the provided username exists
       const user = await User.findOne({ username });
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-
-      // Validate password
-      if (password !== user.password) {
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      if (!passwordMatch) {
         return res.status(401).json({ message: "Invalid password" });
       }
-
-      // User login successful
-      res.json({ message: "Login successful", user });
+      const token = generateToken(user);
+      res.status(200).json({ token, user, message: "Login successful" });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Server Error" });
